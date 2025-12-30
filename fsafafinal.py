@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Financial & Forensic Dashboard", layout="wide")
 
 # --------------------------------------------------
-# LOAD EXCEL FILE
+# LOAD EXCEL
 # --------------------------------------------------
 FILE_PATH = "FSAFAWAIExcel_Final.xlsx"
 
@@ -25,57 +25,42 @@ data = load_data()
 company_list = data["Financials"]["Company"].unique()
 company = st.selectbox("Select Company", company_list)
 
-# Filter data
 financials = data["Financials"][data["Financials"]["Company"] == company]
 analysis = data["Financial Analysis"][data["Financial Analysis"]["Company"] == company]
 forensic = data["Forensic Analysis"][data["Forensic Analysis"]["Company"] == company]
 
 # ==================================================
-# 🔷 TOP SECTION – FINANCIAL STATEMENT ANALYSIS
+# TOP HALF — FINANCIAL ANALYSIS
 # ==================================================
 st.markdown("## 📊 Financial Statement Analysis")
 
+# ---------- ROW 1 ----------
 col1, col2 = st.columns(2)
 
-# -----------------------------
 # Company Snapshot
-# -----------------------------
 with col1:
     st.subheader("Company Snapshot")
-
     fig, ax = plt.subplots()
     ax.plot(financials["Year"], financials["Revenue"], label="Revenue")
     ax.plot(financials["Year"], financials["Profit"], label="Profit")
     ax.plot(financials["Year"], financials["CFO"], label="CFO")
     ax.set_xlabel("Year")
-    ax.set_ylabel("Amount")
+    ax.set_ylabel("Value")
     ax.legend()
     st.pyplot(fig)
 
-# -----------------------------
-# DuPont Analysis
-# -----------------------------
+# DuPont Table
 with col2:
     st.subheader("DuPont Analysis")
-    dupont_cols = [
-        "Year",
-        "Net Profit Margin",
-        "Asset Turnover",
-        "Equity Multiplier",
-        "ROE"
-    ]
+    dupont_cols = ["Year", "Net Profit Margin", "Asset Turnover", "Equity Multiplier", "ROE"]
     st.dataframe(analysis[dupont_cols], use_container_width=True)
 
-# ==================================================
-# EFFICIENCY & LIQUIDITY
-# ==================================================
-st.markdown("## ⚙️ Efficiency & Liquidity Analysis")
-
+# ---------- ROW 2 ----------
 col3, col4 = st.columns(2)
 
-# Efficiency
+# Efficiency Analysis
 with col3:
-    st.subheader("Efficiency Ratios")
+    st.subheader("Efficiency Analysis")
     fig, ax = plt.subplots()
     ax.plot(analysis["Year"], analysis["DSO"], label="DSO")
     ax.plot(analysis["Year"], analysis["DPO"], label="DPO")
@@ -85,9 +70,9 @@ with col3:
     ax.legend()
     st.pyplot(fig)
 
-# Liquidity
+# Liquidity Analysis
 with col4:
-    st.subheader("Liquidity Ratios")
+    st.subheader("Liquidity Analysis")
     fig, ax = plt.subplots()
     ax.plot(analysis["Year"], analysis["WCR"], label="Working Capital Ratio")
     ax.plot(analysis["Year"], analysis["Cash Ratio"], label="Cash Ratio")
@@ -96,7 +81,7 @@ with col4:
     st.pyplot(fig)
 
 # ==================================================
-# 🔍 FORENSIC ANALYSIS (BOTTOM SECTION)
+# FORENSIC ANALYSIS SECTION
 # ==================================================
 st.markdown("## 🔍 Forensic Accounting Analysis")
 
@@ -106,24 +91,23 @@ ax.bar(forensic["Year"], forensic["F_Score"], bottom=forensic["M_Score"], label=
 ax.bar(forensic["Year"], forensic["Z_Score"],
        bottom=forensic["M_Score"] + forensic["F_Score"],
        label="Z-Score")
-ax.bar(forensic["Year"], forensic["Accruals"], alpha=0.5, label="Accruals")
+ax.bar(forensic["Year"], forensic["Accruals"], alpha=0.6, label="Accruals")
 ax.legend()
 st.pyplot(fig)
 
-# ==================================================
+# --------------------------------------------------
 # FINAL VERDICT
-# ==================================================
+# --------------------------------------------------
 st.markdown("## 🧠 Final Forensic Verdict")
 
 avg_m = forensic["M_Score"].mean()
 avg_z = forensic["Z_Score"].mean()
-avg_acc = forensic["Accruals"].mean()
 
 if avg_m < -2.22 and avg_z > 3:
-    verdict = "The company shows strong financial health with low risk of earnings manipulation."
+    verdict = "Strong financial health with low earnings manipulation risk."
 elif avg_m > -2.22 and avg_z < 1.8:
-    verdict = "The company shows high probability of earnings manipulation and financial distress."
+    verdict = "High probability of earnings manipulation and financial distress."
 else:
-    verdict = "The company displays moderate financial quality with mixed forensic indicators."
+    verdict = "Moderate financial strength with mixed forensic indicators."
 
 st.success(verdict)
