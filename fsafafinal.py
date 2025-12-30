@@ -15,7 +15,6 @@ FILE_PATH = "FSAFAWAIExcel_Final.xlsx"
 @st.cache_data
 def load_data():
     try:
-        # Standardizing the file loading process
         xls = pd.ExcelFile(FILE_PATH)
         data = {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
         return data
@@ -25,32 +24,31 @@ def load_data():
 
 data = load_data()
 
-# Robust function to extract data regardless of first column name (Metric vs Year)
+# Function to extract data by looking at the first column (Metric/Year)
 def get_clean_data(df, keyword):
     if df is None or df.empty:
         return None, None
     
-    # Identify the first column (where labels like 'Sales' or 'M Score' are stored)
+    # Identify the first column regardless of its name
     label_col = df.columns[0]
     
-    # Find row where that label contains our keyword
+    # Find row where label contains the keyword
     mask = df[label_col].astype(str).str.contains(keyword, case=False, na=False)
     row = df[mask]
     
     if row.empty:
         return None, None
     
-    # Identify valid year columns (skipping the label column and ignoring Unnamed helpers)
+    # Get columns that represent years (skipping the label column)
     valid_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
     
-    # Extract years as strings and values as numbers
+    # Convert years to strings and values to numeric
     years = [str(c) for c in valid_cols]
     values = pd.to_numeric(row[valid_cols].iloc[0], errors='coerce')
     
     return years, values
 
 if data:
-    # Analyzing the first 5 company sheets
     company_sheets = list(data.keys())[:5]
     
     st.title("Financial and Forensic Analysis Dashboard")
@@ -60,7 +58,7 @@ if data:
     # --------------------------------------------------
     st.header("Forensic Accounting Analysis")
     
-    # Accrual Trend Graph
+    # Accrual Trend
     st.subheader("Accrual Trend (2014-2025)")
     fig1, ax1 = plt.subplots(figsize=(10, 4))
     for company in company_sheets:
@@ -68,12 +66,12 @@ if data:
         if y is not None:
             ax1.plot(x, y, marker="o", label=company)
     
-    plt.xticks(rotation=45) # Prevents X-axis year overlap
+    plt.xticks(rotation=45)
     ax1.set_ylabel("Value")
     ax1.legend()
     st.pyplot(fig1)
 
-    # Separate Score Comparison using Tabs
+    # Separate Score Graphs in Tabs
     st.subheader("Forensic Score Comparison")
     tab1, tab2, tab3 = st.tabs(["M-Score", "Z-Score", "F-Score"])
     
@@ -141,4 +139,12 @@ if data:
     # --------------------------------------------------
     # USER INTERPRETATION
     # --------------------------------------------------
-    st.header("Anal
+    st.header("Analyst Interpretation")
+    st.text_area(
+        label="Enter findings below:",
+        value="Write your analysis and conclusions here.",
+        height=200
+    )
+
+else:
+    st.error("Excel file not found. Ensure 'FSAFA WAI Excel.xlsx' is in the app folder.")
