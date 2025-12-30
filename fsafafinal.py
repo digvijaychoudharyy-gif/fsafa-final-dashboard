@@ -14,134 +14,116 @@ FILE_PATH = "FSAFAWAIExcel_Final.xlsx"
 
 @st.cache_data
 def load_data():
-    try:
-        xls = pd.ExcelFile(FILE_PATH)
-        data = {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
-        return data
-    except Exception as e:
-        st.error(f"Error loading Excel file: {e}")
-        return None
+    xls = pd.ExcelFile(FILE_PATH)
+    return {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
 
 data = load_data()
 
 # --------------------------------------------------
-# HELPER FUNCTION
+# COMPANY SELECTION
 # --------------------------------------------------
-def get_clean_data(df, keyword):
-    if df is None or df.empty:
-        return None, None
+company_list = data["Financials"]["Company"].unique()
+company = st.selectbox("Select Company", company_list)
 
-    label_col = df.columns[0]
-    mask = df[label_col].astype(str).str.contains(keyword, case=False, na=False)
-    row = df[mask]
+# Filter data
+financials = data["Financials"][data["Financials"]["Company"] == company]
+analysis = data["Financial Analysis"][data["Financial Analysis"]["Company"] == company]
+forensic = data["Forensic Analysis"][data["Forensic Analysis"]["Company"] == company]
 
-    if row.empty:
-        return None, None
+# ==================================================
+# 🔷 TOP SECTION – FINANCIAL STATEMENT ANALYSIS
+# ==================================================
+st.markdown("## 📊 Financial Statement Analysis")
 
-    year_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
-    values = pd.to_numeric(row[year_cols].iloc[0], errors="coerce")
+col1, col2 = st.columns(2)
 
-    return year_cols, values
+# -----------------------------
+# Company Snapshot
+# -----------------------------
+with col1:
+    st.subheader("Company Snapshot")
 
+    fig, ax = plt.subplots()
+    ax.plot(financials["Year"], financials["Revenue"], label="Revenue")
+    ax.plot(financials["Year"], financials["Profit"], label="Profit")
+    ax.plot(financials["Year"], financials["CFO"], label="CFO")
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Amount")
+    ax.legend()
+    st.pyplot(fig)
 
-# --------------------------------------------------
-# MAIN DASHBOARD
-# --------------------------------------------------
-if data:
+# -----------------------------
+# DuPont Analysis
+# -----------------------------
+with col2:
+    st.subheader("DuPont Analysis")
+    dupont_cols = [
+        "Year",
+        "Net Profit Margin",
+        "Asset Turnover",
+        "Equity Multiplier",
+        "ROE"
+    ]
+    st.dataframe(analysis[dupont_cols], use_container_width=True)
 
-    company_sheets = list(data.keys())
-    st.title("📊 Financial & Forensic Analysis Dashboard")
+# ==================================================
+# EFFICIENCY & LIQUIDITY
+# ==================================================
+st.markdown("## ⚙️ Efficiency & Liquidity Analysis")
 
-    # --------------------------------------------------
-    # FORENSIC ANALYSIS
-    # --------------------------------------------------
-    st.header("Forensic Accounting Analysis")
+col3, col4 = st.columns(2)
 
-    st.subheader("Accrual Trend (2014–2025)")
-    fig1, ax1 = plt.subplots(figsize=(10, 4))
+# Efficiency
+with col3:
+    st.subheader("Efficiency Ratios")
+    fig, ax = plt.subplots()
+    ax.plot(analysis["Year"], analysis["DSO"], label="DSO")
+    ax.plot(analysis["Year"], analysis["DPO"], label="DPO")
+    ax.plot(analysis["Year"], analysis["DIO"], label="DIO")
+    ax.plot(analysis["Year"], analysis["CCC"], label="CCC")
+    ax.set_xlabel("Year")
+    ax.legend()
+    st.pyplot(fig)
 
-    for company in company_sheets:
-        x, y = get_clean_data(data[company], "Accrual")
-        if y is not None:
-            ax1.plot(x, y, marker="o", label=company)
+# Liquidity
+with col4:
+    st.subheader("Liquidity Ratios")
+    fig, ax = plt.subplots()
+    ax.plot(analysis["Year"], analysis["WCR"], label="Working Capital Ratio")
+    ax.plot(analysis["Year"], analysis["Cash Ratio"], label="Cash Ratio")
+    ax.set_xlabel("Year")
+    ax.legend()
+    st.pyplot(fig)
 
-    ax1.set_ylabel("Accrual Value")
-    ax1.legend()
-    st.pyplot(fig1)
+# ==================================================
+# 🔍 FORENSIC ANALYSIS (BOTTOM SECTION)
+# ==================================================
+st.markdown("## 🔍 Forensic Accounting Analysis")
 
-    # ---------------------------
-    # SCORE TABS
-    # ---------------------------
-    st.subheader("Forensic Score Comparison")
-    tab1, tab2, tab3 = st.tabs(["M-Score", "Z-Score", "F-Score"])
+fig, ax = plt.subplots()
+ax.bar(forensic["Year"], forensic["M_Score"], label="M-Score")
+ax.bar(forensic["Year"], forensic["F_Score"], bottom=forensic["M_Score"], label="F-Score")
+ax.bar(forensic["Year"], forensic["Z_Score"],
+       bottom=forensic["M_Score"] + forensic["F_Score"],
+       label="Z-Score")
+ax.bar(forensic["Year"], forensic["Accruals"], alpha=0.5, label="Accruals")
+ax.legend()
+st.pyplot(fig)
 
-    with tab1:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for company in company_sheets:
-            x, y = get_clean_data(data[company], "M Score")
-            if y is not None:
-                ax.plot(x, y, marker="o", label=company)
-        ax.set_title("Beneish M-Score")
-        ax.legend()
-        st.pyplot(fig)
+# ==================================================
+# FINAL VERDICT
+# ==================================================
+st.markdown("## 🧠 Final Forensic Verdict")
 
-    with tab2:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for company in company_sheets:
-            x, y = get_clean_data(data[company], "Z Score")
-            if y is not None:
-                ax.plot(x, y, marker="o", label=company)
-        ax.set_title("Altman Z-Score")
-        ax.legend()
-        st.pyplot(fig)
+avg_m = forensic["M_Score"].mean()
+avg_z = forensic["Z_Score"].mean()
+avg_acc = forensic["Accruals"].mean()
 
-    with tab3:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for company in company_sheets:
-            x, y = get_clean_data(data[company], "F Score")
-            if y is not None:
-                ax.plot(x, y, marker="o", label=company)
-        ax.set_title("Piotroski F-Score")
-        ax.legend()
-        st.pyplot(fig)
-
-    # --------------------------------------------------
-    # FINANCIAL PERFORMANCE
-    # --------------------------------------------------
-    st.header("Financial Performance Analysis")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Revenue Trend")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        for company in company_sheets:
-            x, y = get_clean_data(data[company], "Revenue")
-            if y is not None:
-                ax.plot(x, y, marker="o", label=company)
-        ax.legend()
-        st.pyplot(fig)
-
-    with col2:
-        st.subheader("Net Profit Trend")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        for company in company_sheets:
-            x, y = get_clean_data(data[company], "Net Profit")
-            if y is not None:
-                ax.plot(x, y, marker="o", label=company)
-        ax.legend()
-        st.pyplot(fig)
-
-    # --------------------------------------------------
-    # FINAL INTERPRETATION
-    # --------------------------------------------------
-    st.header("Analyst Interpretation")
-
-    st.text_area(
-        "Enter your qualitative analysis and conclusions:",
-        value="Based on forensic indicators and financial trends, the company shows the following performance characteristics...",
-        height=200
-    )
-
+if avg_m < -2.22 and avg_z > 3:
+    verdict = "The company shows strong financial health with low risk of earnings manipulation."
+elif avg_m > -2.22 and avg_z < 1.8:
+    verdict = "The company shows high probability of earnings manipulation and financial distress."
 else:
-    st.error("Excel file not found. Please ensure 'FSAFAWAIExcel_Final.xlsx' is in the project folder.")
+    verdict = "The company displays moderate financial quality with mixed forensic indicators."
+
+st.success(verdict)
