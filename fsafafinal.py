@@ -1,116 +1,134 @@
-Here is a clear, professional, and well-structured rewritten version of your requirements, keeping everything intact but expressed more formally and clearly:
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
 
----
+# --------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------
+st.set_page_config(page_title="Financial & Forensic Dashboard", layout="wide")
 
-I am planning to build a **static dashboard using Python**, which will be deployed using **GitHub and Streamlit**. The entire dashboard will be driven strictly by the **Excel file that I upload**, and no external or dynamic data sources will be used.
+# --------------------------------------------------
+# LOAD EXCEL FILE
+# --------------------------------------------------
+FILE_PATH = "FSAFAWAIExcel.xlsx"
 
-### **Dashboard Structure and Requirements**
+@st.cache_data
+def load_data():
+    xls = pd.ExcelFile(FILE_PATH)
+    data = {}
+    for sheet in xls.sheet_names:
+        data[sheet] = pd.read_excel(xls, sheet_name=sheet)
+    return data
 
-#### **1. Data Source**
+data = load_data()
 
-* The Excel file contains **five sheets**, which include:
+company_sheets = list(data.keys())[:5]   # First 5 sheets = companies
 
-  * Financial statements of the company
-  * Forensic accounting and financial analysis data
-* All visualizations and calculations must strictly use data from these sheets.
-* Sheet names and structure must be used exactly as they appear in the Excel file.
+# --------------------------------------------------
+# TITLE
+# --------------------------------------------------
+st.title("Financial and Forensic Analysis Dashboard")
 
----
+# --------------------------------------------------
+# FORENSIC ANALYSIS
+# --------------------------------------------------
+st.header("Forensic Accounting Analysis")
 
-### **2. Dashboard Layout**
+# ---------- ACCRUAL TREND ----------
+st.subheader("Accrual Trend (2014–2025)")
 
-The dashboard should be divided into **two main horizontal sections**:
+fig1, ax1 = plt.subplots(figsize=(10, 5))
 
----
+for company in company_sheets:
+    df = data[company]
+    metric_col = df.columns[0]
+    year_cols = df.columns[1:]
 
-## **A. Upper Section – Financial Statement Analysis**
+    accrual_row = df[df[metric_col].astype(str).str.contains("accrual", case=False, na=False)]
 
-### **1. Company Selection**
+    if not accrual_row.empty:
+        ax1.plot(year_cols, accrual_row.iloc[0, 1:], marker="o", label=company)
 
-* A dropdown selector to choose a specific company.
-* All visuals update based on the selected company.
+ax1.set_xlabel("Year")
+ax1.set_ylabel("Accruals")
+ax1.set_title("Accrual Trend Comparison")
+ax1.legend()
+st.pyplot(fig1)
 
-### **2. Company Snapshot (Left Panel)**
+# --------------------------------------------------
+# FORENSIC SCORES
+# --------------------------------------------------
+st.subheader("M-Score, Z-Score and F-Score")
 
-This section should include:
+fig2, ax2 = plt.subplots(figsize=(10, 5))
 
-* A line graph showing:
+for company in company_sheets:
+    df = data[company]
+    metric_col = df.columns[0]
 
-  * Revenue
-  * Profit
-  * Cash Flow from Operations (CFO)
-* The **X-axis must represent years (2014–2025)**.
-* The **Y-axis should represent financial values**.
+    scores = df[df[metric_col].astype(str).isin(["M Score", "Z Score", "F Score"])]
 
-### **3. DuPont Analysis (Right Panel)**
+    for _, row in scores.iterrows():
+        ax2.plot(df.columns[1:], row[1:], marker="o", label=f"{company} - {row[metric_col]}")
 
-* Display the **DuPont Analysis table** exactly as given in the Financial Statement Analysis sheet.
-* The table should be shown for the selected company without altering its structure.
+ax2.set_xlabel("Year")
+ax2.set_ylabel("Score Value")
+ax2.set_title("Forensic Score Comparison")
+ax2.legend()
+st.pyplot(fig2)
 
----
+# --------------------------------------------------
+# FINANCIAL PERFORMANCE
+# --------------------------------------------------
+st.header("Financial Performance Analysis")
 
-### **4. Efficiency Analysis (Below Company Snapshot)**
+# ---------- REVENUE ----------
+st.subheader("Revenue Trend")
 
-* Graphs showing:
+fig3, ax3 = plt.subplots(figsize=(10, 5))
 
-  * Days Sales Outstanding (DSO)
-  * Days Payable Outstanding (DPO)
-  * Days Inventory Outstanding (DIO)
-  * Cash Conversion Cycle (CCC)
-* Years should be on the horizontal axis.
-* Data should be sourced from the Financial Statement Analysis sheet.
+for company in company_sheets:
+    df = data[company]
+    metric_col = df.columns[0]
 
----
+    revenue = df[df[metric_col].astype(str).str.contains("revenue|sales", case=False, na=False)]
 
-### **5. Liquidity Analysis (Right of Efficiency Section)**
+    if not revenue.empty:
+        ax3.plot(df.columns[1:], revenue.iloc[0, 1:], marker="o", label=company)
 
-* Graphs for:
+ax3.set_xlabel("Year")
+ax3.set_ylabel("Revenue")
+ax3.set_title("Revenue Comparison")
+ax3.legend()
+st.pyplot(fig3)
 
-  * Working Capital Ratio (WCR)
-  * Cash Ratio
-* Again, years must be on the horizontal axis.
+# --------------------------------------------------
+# PROFIT
+# --------------------------------------------------
+st.subheader("Profit Trend")
 
----
+fig4, ax4 = plt.subplots(figsize=(10, 5))
 
-## **B. Lower Section – Forensic Accounting Analysis**
+for company in company_sheets:
+    df = data[company]
+    metric_col = df.columns[0]
 
-### **1. Forensic Indicators Visualization**
+    profit = df[df[metric_col].astype(str).str.contains("profit", case=False, na=False)]
 
-Display bar charts for:
+    if not profit.empty:
+        ax4.plot(df.columns[1:], profit.iloc[0, 1:], marker="o", label=company)
 
-* M-Score
-* F-Score
-* Z-Score
-* Accruals
+ax4.set_xlabel("Year")
+ax4.set_ylabel("Profit")
+ax4.set_title("Profit Comparison")
+ax4.legend()
+st.pyplot(fig4)
 
-(All values should be taken directly from the respective company sheets.)
-
-### **2. Final Forensic Verdict**
-
-* Provide a concise analytical conclusion based on:
-
-  * Accrual behavior
-  * Earnings manipulation indicators
-  * Financial distress signals
-* The verdict should clearly state the financial quality and risk level of the company.
-
----
-
-### **Additional Requirements**
-
-* The dashboard must be **static** (no real-time or API-based data).
-* Use **Python + Streamlit** only.
-* Provide a `requirements.txt` file listing all necessary libraries.
-* Follow clean layout principles with readable charts and proper spacing.
-* Apply thoughtful visual design to improve clarity and interpretation.
-
----
-
-If you want, I can next help you with:
-
-* Folder structure for the project
-* Complete Streamlit code
-* `requirements.txt` file
-* Recommended chart types and color themes
-
-Just tell me what you want next.
+# --------------------------------------------------
+# USER INTERPRETATION
+# --------------------------------------------------
+st.header("Analyst Interpretation")
+st.text_area(
+    "Write your analysis, observations, and conclusions here:",
+    height=200
+)
