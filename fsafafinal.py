@@ -10,125 +10,125 @@ st.set_page_config(page_title="Financial & Forensic Dashboard", layout="wide")
 # --------------------------------------------------
 # LOAD EXCEL FILE
 # --------------------------------------------------
+# Ensure this matches your exact filename
 FILE_PATH = "FSAFAWAIExcel.xlsx"
 
 @st.cache_data
 def load_data():
-    xls = pd.ExcelFile(FILE_PATH)
-    data = {}
-    for sheet in xls.sheet_names:
-        data[sheet] = pd.read_excel(xls, sheet_name=sheet)
-    return data
+    try:
+        xls = pd.ExcelFile(FILE_PATH)
+        data = {}
+        for sheet in xls.sheet_names:
+            df = pd.read_excel(xls, sheet_name=sheet)
+            data[sheet] = df
+        return data
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
+        return None
 
 data = load_data()
 
-company_sheets = list(data.keys())[:5]   # First 5 sheets = companies
+if data:
+    company_sheets = list(data.keys())[:5]   # First 5 sheets = companies
 
-# --------------------------------------------------
-# TITLE
-# --------------------------------------------------
-st.title("Financial and Forensic Analysis Dashboard")
+    # --------------------------------------------------
+    # TITLE
+    # --------------------------------------------------
+    st.title("📊 Financial and Forensic Analysis Dashboard")
 
-# --------------------------------------------------
-# FORENSIC ANALYSIS
-# --------------------------------------------------
-st.header("Forensic Accounting Analysis")
+    # --------------------------------------------------
+    # FORENSIC ANALYSIS (ACCRUALS)
+    # --------------------------------------------------
+    st.header("🔍 Forensic Accounting Analysis")
+    st.subheader("Accrual Trend (2014-2025)")
 
-# ---------- ACCRUAL TREND ----------
-st.subheader("Accrual Trend (2014–2025)")
+    fig1, ax1 = plt.subplots(figsize=(10, 5))
+    for company in company_sheets:
+        df = data[company]
+        label_col = df.columns[0]
+        # Find row containing 'accrual'
+        accrual_row = df[df[label_col].astype(str).str.contains("accrual", case=False, na=False)]
+        
+        if not accrual_row.empty:
+            year_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
+            y_values = pd.to_numeric(accrual_row[year_cols].iloc[0], errors='coerce')
+            ax1.plot(year_cols, y_values, marker="o", label=company)
 
-fig1, ax1 = plt.subplots(figsize=(10, 5))
+    ax1.set_xlabel("Year")
+    ax1.set_ylabel("Accruals")
+    plt.xticks(rotation=45) # Prevents X-axis overlap
+    ax1.legend()
+    st.pyplot(fig1)
 
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-    year_cols = df.columns[1:]
+    # --------------------------------------------------
+    # SEPARATE FORENSIC SCORES
+    # --------------------------------------------------
+    st.subheader("Forensic Score Breakdowns")
+    score_tabs = st.tabs(["M-Score", "Z-Score", "F-Score"])
+    score_names = ["M Score", "Z Score", "F Score"]
 
-    accrual_row = df[df[metric_col].astype(str).str.contains("accrual", case=False, na=False)]
+    for i, tab in enumerate(score_tabs):
+        with tab:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            target_score = score_names[i]
+            for company in company_sheets:
+                df = data[company]
+                label_col = df.columns[0]
+                # Match exact score name
+                row = df[df[label_col].astype(str).str.strip() == target_score]
+                if not row.empty:
+                    year_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
+                    y_values = pd.to_numeric(row[year_cols].iloc[0], errors='coerce')
+                    ax.plot(year_cols, y_values, marker="o", label=company)
+            
+            ax.set_title(f"{target_score} Comparison")
+            ax.set_ylabel("Score Value")
+            plt.xticks(rotation=45)
+            ax.legend()
+            st.pyplot(fig)
 
-    if not accrual_row.empty:
-        ax1.plot(year_cols, accrual_row.iloc[0, 1:], marker="o", label=company)
+    # --------------------------------------------------
+    # FINANCIAL PERFORMANCE
+    # --------------------------------------------------
+    st.header("📈 Financial Performance Analysis")
 
-ax1.set_xlabel("Year")
-ax1.set_ylabel("Accruals")
-ax1.set_title("Accrual Trend Comparison")
-ax1.legend()
-st.pyplot(fig1)
+    col_rev, col_prof = st.columns(2)
 
-# --------------------------------------------------
-# FORENSIC SCORES
-# --------------------------------------------------
-st.subheader("M-Score, Z-Score and F-Score")
+    with col_rev:
+        st.subheader("Revenue Trend")
+        fig3, ax3 = plt.subplots(figsize=(8, 5))
+        for company in company_sheets:
+            df = data[company]
+            label_col = df.columns[0]
+            revenue = df[df[label_col].astype(str).str.contains("revenue|sales", case=False, na=False)]
+            if not revenue.empty:
+                year_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
+                y_values = pd.to_numeric(revenue[year_cols].iloc[0], errors='coerce')
+                ax3.plot(year_cols, y_values, marker="o", label=company)
+        plt.xticks(rotation=45)
+        ax3.legend()
+        st.pyplot(fig3)
 
-fig2, ax2 = plt.subplots(figsize=(10, 5))
+    with col_prof:
+        st.subheader("Profit Trend")
+        fig4, ax4 = plt.subplots(figsize=(8, 5))
+        for company in company_sheets:
+            df = data[company]
+            label_col = df.columns[0]
+            profit = df[df[label_col].astype(str).str.contains("profit", case=False, na=False)]
+            if not profit.empty:
+                year_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
+                y_values = pd.to_numeric(profit[year_cols].iloc[0], errors='coerce')
+                ax4.plot(year_cols, y_values, marker="o", label=company)
+        plt.xticks(rotation=45)
+        ax4.legend()
+        st.pyplot(fig4)
 
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
+    # --------------------------------------------------
+    # USER INTERPRETATION
+    # --------------------------------------------------
+    st.header("📝 Analyst Interpretation")
+    st.text_area("Write your analysis, observations, and conclusions here:", height=200)
 
-    scores = df[df[metric_col].astype(str).isin(["M Score", "Z Score", "F Score"])]
-
-    for _, row in scores.iterrows():
-        ax2.plot(df.columns[1:], row[1:], marker="o", label=f"{company} - {row[metric_col]}")
-
-ax2.set_xlabel("Year")
-ax2.set_ylabel("Score Value")
-ax2.set_title("Forensic Score Comparison")
-ax2.legend()
-st.pyplot(fig2)
-
-# --------------------------------------------------
-# FINANCIAL PERFORMANCE
-# --------------------------------------------------
-st.header("Financial Performance Analysis")
-
-# ---------- REVENUE ----------
-st.subheader("Revenue Trend")
-
-fig3, ax3 = plt.subplots(figsize=(10, 5))
-
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-
-    revenue = df[df[metric_col].astype(str).str.contains("revenue|sales", case=False, na=False)]
-
-    if not revenue.empty:
-        ax3.plot(df.columns[1:], revenue.iloc[0, 1:], marker="o", label=company)
-
-ax3.set_xlabel("Year")
-ax3.set_ylabel("Revenue")
-ax3.set_title("Revenue Comparison")
-ax3.legend()
-st.pyplot(fig3)
-
-# --------------------------------------------------
-# PROFIT
-# --------------------------------------------------
-st.subheader("Profit Trend")
-
-fig4, ax4 = plt.subplots(figsize=(10, 5))
-
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-
-    profit = df[df[metric_col].astype(str).str.contains("profit", case=False, na=False)]
-
-    if not profit.empty:
-        ax4.plot(df.columns[1:], profit.iloc[0, 1:], marker="o", label=company)
-
-ax4.set_xlabel("Year")
-ax4.set_ylabel("Profit")
-ax4.set_title("Profit Comparison")
-ax4.legend()
-st.pyplot(fig4)
-
-# --------------------------------------------------
-# USER INTERPRETATION
-# --------------------------------------------------
-st.header("Analyst Interpretation")
-st.text_area(
-    "Write your analysis, observations, and conclusions here:",
-    height=200
-)
+else:
+    st.error("Please ensure the Excel file is named correctly and uploaded.")
