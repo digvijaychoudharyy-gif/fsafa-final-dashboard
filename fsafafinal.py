@@ -14,118 +14,131 @@ FILE_PATH = "FSAFAWAIExcel_Final.xlsx"
 
 @st.cache_data
 def load_data():
-    xls = pd.ExcelFile(FILE_PATH)
-    data = {}
-    for sheet in xls.sheet_names:
-        data[sheet] = pd.read_excel(xls, sheet_name=sheet)
-    return data
+    try:
+        # Standardizing the file loading process
+        xls = pd.ExcelFile(FILE_PATH)
+        data = {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
+        return data
+    except Exception as e:
+        st.error(f"Error loading Excel file: {e}")
+        return None
 
 data = load_data()
-company_sheets = list(data.keys())[:5]  # first 5 sheets = companies
 
-# --------------------------------------------------
-# TITLE
-# --------------------------------------------------
-st.title("📊 Financial & Forensic Analysis Dashboard")
+# Robust function to extract data regardless of first column name (Metric vs Year)
+def get_clean_data(df, keyword):
+    if df is None or df.empty:
+        return None, None
+    
+    # Identify the first column (where labels like 'Sales' or 'M Score' are stored)
+    label_col = df.columns[0]
+    
+    # Find row where that label contains our keyword
+    mask = df[label_col].astype(str).str.contains(keyword, case=False, na=False)
+    row = df[mask]
+    
+    if row.empty:
+        return None, None
+    
+    # Identify valid year columns (skipping the label column and ignoring Unnamed helpers)
+    valid_cols = [c for c in df.columns[1:] if "Unnamed" not in str(c)]
+    
+    # Extract years as strings and values as numbers
+    years = [str(c) for c in valid_cols]
+    values = pd.to_numeric(row[valid_cols].iloc[0], errors='coerce')
+    
+    return years, values
 
-# ==================================================
-# FORENSIC ANALYSIS
-# ==================================================
-st.header("🔍 Forensic Accounting Analysis")
+if data:
+    # Analyzing the first 5 company sheets
+    company_sheets = list(data.keys())[:5]
+    
+    st.title("Financial and Forensic Analysis Dashboard")
 
-# ---------- ACCRUAL TREND ----------
-st.subheader("Accrual Trend (2014–2025)")
+    # --------------------------------------------------
+    # FORENSIC ANALYSIS SECTION
+    # --------------------------------------------------
+    st.header("Forensic Accounting Analysis")
+    
+    # Accrual Trend Graph
+    st.subheader("Accrual Trend (2014-2025)")
+    fig1, ax1 = plt.subplots(figsize=(10, 4))
+    for company in company_sheets:
+        x, y = get_clean_data(data[company], "Accrual")
+        if y is not None:
+            ax1.plot(x, y, marker="o", label=company)
+    
+    plt.xticks(rotation=45) # Prevents X-axis year overlap
+    ax1.set_ylabel("Value")
+    ax1.legend()
+    st.pyplot(fig1)
 
-fig1, ax1 = plt.subplots(figsize=(10, 5))
+    # Separate Score Comparison using Tabs
+    st.subheader("Forensic Score Comparison")
+    tab1, tab2, tab3 = st.tabs(["M-Score", "Z-Score", "F-Score"])
+    
+    with tab1:
+        figM, axM = plt.subplots(figsize=(10, 4))
+        for company in company_sheets:
+            x, y = get_clean_data(data[company], "M Score")
+            if y is not None:
+                axM.plot(x, y, marker="o", label=company)
+        plt.xticks(rotation=45)
+        axM.set_title("Beneish M-Score (2014-2025)")
+        axM.legend()
+        st.pyplot(figM)
 
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-    year_cols = df.columns[1:]
+    with tab2:
+        figZ, axZ = plt.subplots(figsize=(10, 4))
+        for company in company_sheets:
+            x, y = get_clean_data(data[company], "Z Score")
+            if y is not None:
+                axZ.plot(x, y, marker="o", label=company)
+        plt.xticks(rotation=45)
+        axZ.set_title("Altman Z-Score (2014-2025)")
+        axZ.legend()
+        st.pyplot(figZ)
 
-    accrual_row = df[df[metric_col].astype(str).str.contains("accrual", case=False, na=False)]
+    with tab3:
+        figF, axF = plt.subplots(figsize=(10, 4))
+        for company in company_sheets:
+            x, y = get_clean_data(data[company], "F Score")
+            if y is not None:
+                axF.plot(x, y, marker="o", label=company)
+        plt.xticks(rotation=45)
+        axF.set_title("Piotroski F-Score (2014-2025)")
+        axF.legend()
+        st.pyplot(figF)
 
-    if not accrual_row.empty:
-        ax1.plot(year_cols, accrual_row.iloc[0, 1:], marker="o", label=company)
+    # --------------------------------------------------
+    # FINANCIAL PERFORMANCE SECTION
+    # --------------------------------------------------
+    st.header("Financial Performance Analysis")
+    col1, col2 = st.columns(2)
 
-ax1.set_xlabel("Year")
-ax1.set_ylabel("Accruals")
-ax1.set_title("Accrual Trend Comparison")
-ax1.legend()
-st.pyplot(fig1)
+    with col1:
+        st.subheader("Revenue Trend")
+        fig_rev, ax_rev = plt.subplots(figsize=(8, 5))
+        for company in company_sheets:
+            x, y = get_clean_data(data[company], "Sales")
+            if y is not None:
+                ax_rev.plot(x, y, marker="o", label=company)
+        plt.xticks(rotation=45)
+        ax_rev.legend()
+        st.pyplot(fig_rev)
 
-# ==================================================
-# FORENSIC SCORES
-# ==================================================
-st.subheader("M-Score, Z-Score & F-Score")
+    with col2:
+        st.subheader("Net Profit Trend")
+        fig_prof, ax_prof = plt.subplots(figsize=(8, 5))
+        for company in company_sheets:
+            x, y = get_clean_data(data[company], "Net Profit")
+            if y is not None:
+                ax_prof.plot(x, y, marker="o", label=company)
+        plt.xticks(rotation=45)
+        ax_prof.legend()
+        st.pyplot(fig_prof)
 
-fig2, ax2 = plt.subplots(figsize=(10, 5))
-
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-
-    score_rows = df[df[metric_col].astype(str).isin(["M Score", "Z Score", "F Score"])]
-
-    for _, row in score_rows.iterrows():
-        ax2.plot(df.columns[1:], row[1:], marker="o", label=f"{company} - {row[metric_col]}")
-
-ax2.set_xlabel("Year")
-ax2.set_ylabel("Score Value")
-ax2.set_title("Forensic Score Comparison")
-ax2.legend()
-st.pyplot(fig2)
-
-# ==================================================
-# FINANCIAL ANALYSIS
-# ==================================================
-st.header("📈 Financial Performance")
-
-# ---------- REVENUE ----------
-st.subheader("Revenue Trend")
-
-fig3, ax3 = plt.subplots(figsize=(10, 5))
-
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-
-    revenue = df[df[metric_col].astype(str).str.contains("revenue|sales", case=False, na=False)]
-
-    if not revenue.empty:
-        ax3.plot(df.columns[1:], revenue.iloc[0, 1:], marker="o", label=company)
-
-ax3.set_xlabel("Year")
-ax3.set_ylabel("Revenue")
-ax3.set_title("Revenue Comparison")
-ax3.legend()
-st.pyplot(fig3)
-
-# --------------------------------------------------
-# PROFIT
-# --------------------------------------------------
-st.subheader("Profit Trend")
-
-fig4, ax4 = plt.subplots(figsize=(10, 5))
-
-for company in company_sheets:
-    df = data[company]
-    metric_col = df.columns[0]
-
-    profit = df[df[metric_col].astype(str).str.contains("profit", case=False, na=False)]
-
-    if not profit.empty:
-        ax4.plot(df.columns[1:], profit.iloc[0, 1:], marker="o", label=company)
-
-ax4.set_xlabel("Year")
-ax4.set_ylabel("Profit")
-ax4.set_title("Profit Comparison")
-ax4.legend()
-st.pyplot(fig4)
-
-# ==================================================
-# USER INTERPRETATION
-# ==================================================
-st.header("📝 Analyst Interpretation")
-st.text_area(
-    "Write your interpretation, red flags, and conclusions here:
+    # --------------------------------------------------
+    # USER INTERPRETATION
+    # --------------------------------------------------
+    st.header("Anal
